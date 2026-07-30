@@ -7,7 +7,7 @@
 // Adhere to semver -> semver.org
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 0
-#define BUILD_VERSION 3
+#define BUILD_VERSION 4
 
 #define COPYRIGHT_YEAR "2026" // For ShowVersion()
 

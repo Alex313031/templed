@@ -10,6 +10,13 @@
 // ParseOptions() when -d/--debug is passed
 bool want_debug = false;
 
+// Whether to emit ANSI color codes; main() decides at startup
+bool use_color = false;
+
+const char* Color(const char* color) {
+  return use_color ? color : "";
+}
+
 namespace {
   // The terminal settings from before RawTerminal switched to raw input,
   // kept at file scope so HandleSignal() can also restore them

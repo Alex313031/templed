@@ -6,6 +6,27 @@
 // Whether to use debug mode, even in a release build, set by -d/--debug.
 extern bool want_debug;
 
+// Whether to emit ANSI color codes; main() decides at startup (on when
+// stdout is a terminal, vetoed by the NO_COLOR convention or --no-color)
+extern bool use_color;
+
+// SGR ("Select Graphic Rendition") escape codes - ESC[<attributes>m,
+// where 1 = bold and 30-37/90-97 pick the foreground color. Named
+// literally (not by role, as raspimon does) because the LED words paint
+// themselves in their own color
+inline constexpr char kColorReset[]   = "\033[0m";
+inline constexpr char kColorBold[]    = "\033[1m";    // bold, terminal's own color
+inline constexpr char kColorRed[]     = "\033[1;31m";
+inline constexpr char kColorGreen[]   = "\033[1;32m";
+inline constexpr char kColorYellow[]  = "\033[1;33m";
+inline constexpr char kColorMagenta[] = "\033[1;35m";
+inline constexpr char kColorCyan[]    = "\033[1;36m";
+inline constexpr char kColorBlue[]    = "\033[1;94m"; // bright blue: plain 34 is murky
+
+// Returns `color` when color is on and "" when off, so call sites can
+// stream it unconditionally
+const char* Color(const char* color);
+
 // Whether to output extra debug information: true when either DEBUG/_DEBUG
 // is defined (debug build) or the -d/--debug flag was passed.
 bool IsDebugMode();
