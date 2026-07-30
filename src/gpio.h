@@ -43,6 +43,12 @@ bool InitGpio();
 // dedicated PWM-capable pins (BCM 12/13/18/19)
 void SetLedBrightness(TempBand band, int percent);
 
+// Advances the "blinkenlights" animation (-b) by `elapsed_ms`: every LED
+// strobes on its own random 250-2000ms period, re-rolled each time a
+// cycle completes so the four constantly drift in and out of sync. Call
+// once per animation slice instead of SetLedBrightness()
+void BlinkenlightsTick(int elapsed_ms);
+
 // All four LEDs off; called on every path out of the program so an LED
 // isn't left burning after exit. Safe to call even if InitGpio() failed
 void LedsAllOff();

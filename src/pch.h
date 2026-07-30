@@ -12,6 +12,7 @@
 #include <iomanip>   // std::setw(), std::setprecision()
 #include <iostream>  // std::cout / std::cerr
 #include <optional>  // std::optional
+#include <random>    // std::mt19937, std::uniform_int_distribution
 #include <sstream>   // std::ostringstream
 #include <stdexcept> // std::runtime_error
 #include <string>    // std::string

@@ -7,14 +7,14 @@
 // Adhere to semver -> semver.org
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 0
-#define BUILD_VERSION 2
+#define BUILD_VERSION 3
 
 #define COPYRIGHT_YEAR "2026" // For ShowVersion()
 
 // Macro to convert to string
 #if !defined(STRINGIZE)
  #define STRINGIZER_(in) #in
- #define STRINGIZE(in) STRINGIZER_(in)
+ #define STRINGIZE(in)   STRINGIZER_(in)
 #endif // !defined(STRINGIZE)
 
 // Main version constants
@@ -32,8 +32,8 @@ inline constexpr unsigned long kDefaultDelay = 1000UL; // default delay, 1000ms.
 // In the UTF-8 encoding Linux terminals speak, characters beyond ASCII
 // are multi-byte sequences (the copyright sign is the two bytes 0xC2
 // 0xA9), so these must be char arrays - they don't fit in a single `char`
-inline constexpr char kCopyrightSymbol[] ="\u00A9"; // The © symbol
-inline constexpr char kDegreeSymbol[] ="\u00B0"; // For temperature output
+inline constexpr char kCopyrightSymbol[] = "\u00A9"; // The © symbol
+inline constexpr char kDegreeSymbol[]    = "\u00B0"; // For temperature output
 
 // Parses the command line, applying flag side effects (like -f) and filling
 // in `delay`. Returns std::nullopt if the program should keep running, or

@@ -20,6 +20,20 @@ namespace {
   // unconditionally
   bool gpio_ready = false;
 
+  // Blinkenlights state: each LED fades down its own randomly-chosen
+  // period, independent of the other three
+  struct Blinken {
+    int period_ms    = 0; // current cycle length
+    int remaining_ms = 0; // time left in the current cycle
+  };
+  std::array<Blinken, 4> blinken;
+  bool blinken_started = false;
+
+  // Mersenne Twister PRNG seeded once from the OS entropy pool - the
+  // modern C++ replacement for the classic srand()/rand() pair
+  std::mt19937 rng{std::random_device{}()};
+  std::uniform_int_distribution<int> period_dist{250, 2000};
+
   int PinForBand(TempBand band) {
     switch (band) {
       case TempBand::kBlue:
@@ -93,6 +107,34 @@ void SetLedBrightness(TempBand band, int percent) {
   const int lit = PinForBand(band);
   for (const int pin : kLedPins) {
     softPwmWrite(pin, pin == lit ? percent : 0);
+  }
+}
+
+void BlinkenlightsTick(int elapsed_ms) {
+  if (!gpio_ready) {
+    return;
+  }
+  if (!blinken_started) {
+    blinken_started = true;
+    for (Blinken& led : blinken) {
+      led.period_ms = period_dist(rng);
+      // Start each LED at a random point through its first cycle, so the
+      // four don't begin their fades in lockstep
+      led.remaining_ms = std::uniform_int_distribution<int>(0, led.period_ms)(rng);
+    }
+  }
+  for (size_t i = 0; i < kLedPins.size(); ++i) {
+    Blinken& led = blinken[i];
+    led.remaining_ms -= elapsed_ms;
+    if (led.remaining_ms <= 0) {
+      // Cycle done: re-roll a fresh period, so no LED ever settles into a
+      // predictable rhythm relative to the others
+      led.period_ms    = period_dist(rng);
+      led.remaining_ms = led.period_ms;
+    }
+    // Same gamma-squared fade as the temperature strobe
+    const double fraction = static_cast<double>(led.remaining_ms) / led.period_ms;
+    softPwmWrite(kLedPins[i], static_cast<int>(100.0 * fraction * fraction));
   }
 }
 

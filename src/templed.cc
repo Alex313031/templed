@@ -1,8 +1,8 @@
 // Copyright (c) 2026 Alex313031
 
-// templed is a small command line program for the Raspberry Pi that displays temperature readings, and strobes
-// four LEDS (Blue, Green, Yellow, Red), depending on temperature. Intended as an exercise
-// in accessing the GPIO pins from C++.
+// templed is a small command line program for the Raspberry Pi that displays temperature readings,
+// and strobes four LEDS (Blue, Green, Yellow, Red), depending on temperature. Intended as an
+// exercise in accessing the GPIO pins from C++.
 
 #include "templed.h"
 
@@ -12,6 +12,9 @@
 
 // Whether to display temperatures in Fahrenheit (-f)
 static bool use_fahrenheit = false;
+
+// Whether the LEDs ignore the temperature and strobe at random (-b)
+static bool use_blinkenlights = false;
 
 namespace {
   // Refresh delay, in ms. (1 sec. default)
@@ -57,10 +60,16 @@ bool RefreshLoop(const std::chrono::milliseconds delay) {
       slices = 1;
     }
     const std::chrono::milliseconds slice = delay / slices;
-    bool quit = false;
+    bool quit                             = false;
     for (int i = 0; i < slices && !quit; ++i) {
-      const double fraction = 1.0 - (static_cast<double>(i) / slices);
-      SetLedBrightness(band, static_cast<int>(100.0 * fraction * fraction));
+      if (use_blinkenlights) {
+        // -b: the LEDs run their own random show; the readings above are
+        // still taken and printed as normal
+        BlinkenlightsTick(static_cast<int>(slice.count()));
+      } else {
+        const double fraction = 1.0 - (static_cast<double>(i) / slices);
+        SetLedBrightness(band, static_cast<int>(100.0 * fraction * fraction));
+      }
       quit = WaitForQuit(slice);
     }
     if (quit) {
@@ -79,6 +88,7 @@ void ShowHelp() {
                "Options:\n"
                "  -t, --time <seconds>   Refresh and strobe every <seconds> seconds (default 1)\n"
                "  -f, --fahrenheit       Display temperatures in Fahrenheit\n"
+               "  -b, --blinkenlights    Strobe the LEDs at random (1/4s-2s each), for fun\n"
                "  -d, --debug            Print extra debug output to stderr\n"
                "  -v, --version          Show program version\n"
                "  -h, --help             Show this help message\n"
@@ -89,8 +99,8 @@ void ShowHelp() {
 void ShowVersion() {
   static constexpr char app_ver[] = VERSION_STRING;
   std::cout << kAppName << " v" << app_ver << std::endl;
-  std::cout << "Copyright " << kCopyrightSymbol << " "
-            << COPYRIGHT_YEAR << " Alex313031." << std::endl;
+  std::cout << "Copyright " << kCopyrightSymbol << " " << COPYRIGHT_YEAR << " Alex313031."
+            << std::endl;
 }
 
 std::optional<int> ParseOptions(int argc, char* argv[], std::chrono::milliseconds& delay) {
@@ -112,12 +122,13 @@ std::optional<int> ParseOptions(int argc, char* argv[], std::chrono::millisecond
   static constexpr struct option kLongOptions[] = {
       {"time", required_argument, nullptr, 't'},
       {"fahrenheit", no_argument, nullptr, 'f'},
+      {"blinkenlights", no_argument, nullptr, 'b'},
       {"debug", no_argument, nullptr, 'd'},
       {"version", no_argument, nullptr, 'v'},
       {"help", no_argument, nullptr, 'h'},
       {nullptr, 0, nullptr, 0}, // all-zeros terminator marks the table's end
   };
-  while ((opt = getopt_long(argc, argv, "t:fdvh", kLongOptions, nullptr)) != -1) {
+  while ((opt = getopt_long(argc, argv, "t:fbdvh", kLongOptions, nullptr)) != -1) {
     switch (opt) {
       case 't': {
         double seconds = 0.0;
@@ -139,6 +150,9 @@ std::optional<int> ParseOptions(int argc, char* argv[], std::chrono::millisecond
         break;
       case 'f':
         use_fahrenheit = true;
+        break;
+      case 'b':
+        use_blinkenlights = true;
         break;
       case 'v':
         ShowVersion();
