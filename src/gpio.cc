@@ -8,6 +8,7 @@
 
 #include "gpio.h"
 
+#include <softPwm.h>
 #include <wiringPi.h>
 
 namespace {
@@ -71,18 +72,27 @@ bool InitGpio() {
   }
   gpio_ready = true;
   for (const int pin : kLedPins) {
-    pinMode(pin, OUTPUT);
-    digitalWrite(pin, LOW);
+    // softPwmCreate() sets the pin mode itself and spawns that pin's PWM
+    // thread; a range of 100 makes softPwmWrite() take a straight 0-100
+    // percentage. Four threads waking ~100x/second is negligible CPU
+    if (softPwmCreate(pin, 0, 100) != 0) {
+      return false;
+    }
   }
   return true;
 }
 
-void SetLedForBand(TempBand band) {
+void SetLedBrightness(TempBand band, int percent) {
+  if (percent < 0) {
+    percent = 0;
+  } else if (percent > 100) {
+    percent = 100;
+  }
   // Rewrite all four pins every time instead of tracking which one is
-  // lit: trivially correct, and four register pokes cost nothing
+  // lit: trivially correct, and four duty-cycle updates cost nothing
   const int lit = PinForBand(band);
   for (const int pin : kLedPins) {
-    digitalWrite(pin, pin == lit ? HIGH : LOW);
+    softPwmWrite(pin, pin == lit ? percent : 0);
   }
 }
 
@@ -91,6 +101,10 @@ void LedsAllOff() {
     return;
   }
   for (const int pin : kLedPins) {
+    softPwmWrite(pin, 0);
+    // Also force the line low directly: softPwmWrite() only posts the new
+    // duty cycle for the PWM thread to act on, and on the _exit() path
+    // (signal handler) that thread may never get to run again
     digitalWrite(pin, LOW);
   }
 }

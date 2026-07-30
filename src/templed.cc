@@ -26,9 +26,8 @@ bool RefreshLoop(const std::chrono::milliseconds delay) {
       std::cerr << kAppName << ": can't read the SOC temperature" << std::endl;
       return false;
     }
-    // Drive the LED from the reading, then describe both on one line
+    // Pick the LED from the reading; the strobe loop below drives it
     const TempBand band = BandForTemp(*celsius);
-    SetLedForBand(band);
 
     std::ostringstream line;
     line << std::fixed << std::setprecision(1) << "SOC: ";
@@ -47,7 +46,24 @@ bool RefreshLoop(const std::chrono::milliseconds delay) {
     // when the new text is shorter than the old
     std::cout << '\r' << line.str() << "\033[K" << std::flush;
 
-    if (WaitForQuit(delay)) {
+    // One "strobe" per refresh: the LED starts at full brightness and
+    // fades to dark across the delay, updated in ~40ms slices (25 updates
+    // a second reads as a continuous fade). The eye's response to duty
+    // cycle is roughly logarithmic, so the linear fraction is squared to
+    // make the fade look even instead of hovering near-bright; the quit
+    // check runs every slice, keeping Q/Esc instant
+    int slices = static_cast<int>(delay.count() / 40);
+    if (slices < 1) {
+      slices = 1;
+    }
+    const std::chrono::milliseconds slice = delay / slices;
+    bool quit = false;
+    for (int i = 0; i < slices && !quit; ++i) {
+      const double fraction = 1.0 - (static_cast<double>(i) / slices);
+      SetLedBrightness(band, static_cast<int>(100.0 * fraction * fraction));
+      quit = WaitForQuit(slice);
+    }
+    if (quit) {
       break; // Q or Esc pressed: a clean, deliberate quit
     }
   }
@@ -61,7 +77,7 @@ void ShowHelp() {
                "An experimental temperature monitor for Raspberry Pi.\n\n"
                "Displays the SOC temperature, and strobes multiple colored LEDS accordingly.\n\n"
                "Options:\n"
-               "  -t, --time <seconds>   Refresh every <seconds> seconds (default 1)\n"
+               "  -t, --time <seconds>   Refresh and strobe every <seconds> seconds (default 1)\n"
                "  -f, --fahrenheit       Display temperatures in Fahrenheit\n"
                "  -d, --debug            Print extra debug output to stderr\n"
                "  -v, --version          Show program version\n"

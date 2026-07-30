@@ -30,12 +30,18 @@ TempBand BandForTemp(double celsius);
 // Display name of a band's LED ("Blue", "Green", ...)
 const char* BandName(TempBand band);
 
-// Maps the GPIO registers and puts the four LED pins in output mode (all
-// off); returns false if GPIO setup failed. Call before anything below
+// Maps the GPIO registers and starts software PWM on the four LED pins
+// (all dark); returns false if GPIO setup failed. Call before anything
+// below
 bool InitGpio();
 
-// Lights `band`'s LED and turns the other three off
-void SetLedForBand(TempBand band);
+// Sets `band`'s LED to `percent` brightness (0-100) and turns the other
+// three off. Brightness comes from software PWM: WiringPi runs a small
+// background thread per pin, switching it on/off ~100 times a second,
+// and the on:off ratio (duty cycle) sets how bright the LED looks - the
+// same trick hardware PWM does, without needing one of the SoC's few
+// dedicated PWM-capable pins (BCM 12/13/18/19)
+void SetLedBrightness(TempBand band, int percent);
 
 // All four LEDs off; called on every path out of the program so an LED
 // isn't left burning after exit. Safe to call even if InitGpio() failed
