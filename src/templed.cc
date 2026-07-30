@@ -6,16 +6,54 @@
 
 #include "templed.h"
 
+#include "gpio.h"
+#include "sensors.h"
+#include "utils.h"
+
 // Whether to display temperatures in Fahrenheit (-f)
 static bool use_fahrenheit = false;
-
-// Whether to print extra debug output (-d), even in a release build
-static bool want_debug = false;
 
 namespace {
   // Refresh delay, in ms. (1 sec. default)
   constexpr std::chrono::milliseconds kDefaultDelayMs{kDefaultDelay};
 } // namespace
+
+bool RefreshLoop(const std::chrono::milliseconds delay) {
+  for (;;) {
+    const std::optional<double> celsius = GetSocTempCelsius();
+    if (!celsius) {
+      std::cout << std::endl; // finish the in-place status line first
+      std::cerr << kAppName << ": can't read the SOC temperature" << std::endl;
+      return false;
+    }
+    // Drive the LED from the reading, then describe both on one line
+    const TempBand band = BandForTemp(*celsius);
+    SetLedForBand(band);
+
+    std::ostringstream line;
+    line << std::fixed << std::setprecision(1) << "SOC: ";
+    if (use_fahrenheit) {
+      line << (*celsius * 9.0 / 5.0 + 32.0) << " " << kDegreeSymbol << "F.";
+    } else {
+      line << *celsius << " " << kDegreeSymbol << "C.";
+    }
+    // No fan is normal (Pi 2-4, or a fanless Pi 5): just omit the reading
+    if (const std::optional<long long> rpm = GetFanRpm()) {
+      line << "  Fan: " << *rpm << " RPM.";
+    }
+    line << "  LED: " << BandName(band);
+    // One status line redrawn in place: '\r' returns the cursor to column
+    // 0 so the next print overwrites this one, and ESC[K erases leftovers
+    // when the new text is shorter than the old
+    std::cout << '\r' << line.str() << "\033[K" << std::flush;
+
+    if (WaitForQuit(delay)) {
+      break; // Q or Esc pressed: a clean, deliberate quit
+    }
+  }
+  std::cout << std::endl; // keep the final reading on screen
+  return true;
+}
 
 void ShowHelp() {
   std::cout << "Usage: " << kAppName
@@ -108,5 +146,19 @@ int main(int argc, char* argv[]) {
     return *exit_code;
   }
 
-  return EXIT_SUCCESS;
+  if (!InitGpio()) {
+    std::cerr << kAppName << ": GPIO setup failed (is this a Raspberry Pi?)" << std::endl;
+    return EXIT_FAILURE;
+  }
+  // Register the handlers only after InitGpio(): they turn the LEDs off,
+  // which needs the GPIO mapping ready
+  std::signal(SIGINT, HandleSignal);
+  std::signal(SIGTERM, HandleSignal);
+  // Raw input for the whole run so Q/Esc arrive without needing Enter;
+  // the destructor (or HandleSignal) restores the terminal on the way out
+  const RawTerminal raw_terminal;
+
+  const bool ok = RefreshLoop(delay);
+  LedsAllOff();
+  return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -1,0 +1,49 @@
+# Copyright (c) 2026 Alex313031
+
+# templed BUILD.gn file.
+
+executable("templed") {
+  configs += [ ":templed_config" ]
+
+  precompiled_header = "src/pch.h"
+  precompiled_source = "src/pch.h"
+  sources = [
+    "src/gpio.cc",
+    "src/gpio.h",
+    "src/pch.h",
+    "src/sensors.cc",
+    "src/sensors.h",
+    "src/templed.cc",
+    "src/templed.h",
+    "src/utils.cc",
+    "src/utils.h",
+  ]
+
+  output_name = "templed"
+}
+
+config("templed_config") {
+  include_dirs = [
+    "./src",
+    "./wiringpi/wiringPi",
+  ]
+  cflags_cc = [ "-std=c++17", ]
+
+  # Mirror the Makefile's IS_DEBUG defines; `is_debug` is GN's standard
+  # debug-build argument (set with `gn gen --args="is_debug=true"`)
+  if (is_debug) {
+    defines = [ "DEBUG", "_DEBUG" ]
+  } else {
+    defines = [ "NDEBUG", "_NDEBUG" ]
+  }
+
+  # GN doesn't drive the submodule's Makefile, so libwiringPi.a must be
+  # built once beforehand: `make -C wiringpi/wiringPi static`
+  lib_dirs = [ "./wiringpi/wiringPi" ]
+  libs = [
+    "m",
+    "pthread",
+    "rt",
+    "wiringPi",
+  ]
+}

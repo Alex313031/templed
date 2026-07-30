@@ -7,7 +7,7 @@
 // Adhere to semver -> semver.org
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 0
-#define BUILD_VERSION 0
+#define BUILD_VERSION 1
 
 #define COPYRIGHT_YEAR "2026" // For ShowVersion()
 
@@ -39,6 +39,10 @@ inline constexpr char kDegreeSymbol[] ="\u00B0"; // For temperature output
 // in `delay`. Returns std::nullopt if the program should keep running, or
 // the process exit code to quit with (after -h/-v, or on an invalid flag)
 std::optional<int> ParseOptions(int argc, char* argv[], std::chrono::milliseconds& delay);
+
+// Reads the temperature every `delay`, updates the LED and the status
+// line, until Q/Esc (returns true) or a sensor failure (returns false)
+bool RefreshLoop(std::chrono::milliseconds delay);
 
 // Shows usage help message.
 void ShowHelp();
