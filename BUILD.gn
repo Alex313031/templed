@@ -37,13 +37,24 @@ config("templed_config") {
     defines = [ "NDEBUG", "_NDEBUG" ]
   }
 
-  # GN doesn't drive the submodule's Makefile, so libwiringPi.a must be
-  # built once beforehand: `make -C wiringpi/wiringPi static`
+  # GN doesn't drive the submodule's Makefile: build libwiringPi.so once
+  # beforehand (`make -C wiringpi/wiringPi` plus a libwiringPi.so symlink
+  # to the versioned file - or just run the main Makefile once, which does
+  # both). Upstream is LGPL v3 and shared-library only; the rpath below
+  # lets the runtime loader find the .so in the submodule dir
   lib_dirs = [ "./wiringpi/wiringPi" ]
   libs = [
     "m",
-    "pthread",
-    "rt",
     "wiringPi",
+  ]
+
+  # Static C++ runtime + $ORIGIN rpath ("the binary's own directory"), so
+  # a shipped templed + libwiringPi.so pair runs from any directory; the
+  # second rpath covers running from the build tree
+  ldflags = [
+    "-static-libstdc++",
+    "-static-libgcc",
+    "-Wl,-rpath,\$ORIGIN",
+    "-Wl,-rpath," + rebase_path("wiringpi/wiringPi"),
   ]
 }

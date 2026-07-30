@@ -58,10 +58,13 @@ if(NOT CMAKE_BUILD_TYPE)
   endif()
 endif()
 
-# Always use C17/C++17 and make statically linked builds
+# Always use C17/C++17. Note: no full -static, unlike raspimon - the
+# vendored WiringPi is LGPL v3 and upstream ships it shared-library only.
+# The C++ runtime IS statically linked, so a shipped templed +
+# libwiringPi.so pair only depends on glibc
 string(APPEND CMAKE_C_FLAGS " -std=c17")
 string(APPEND CMAKE_CXX_FLAGS " -std=c++17")
-string(APPEND CMAKE_EXE_LINKER_FLAGS " -static")
+string(APPEND CMAKE_EXE_LINKER_FLAGS " -static-libstdc++ -static-libgcc")
 
 # Linking is driven through the compiler, not by invoking the linker
 # directly, so CMAKE_LINKER would go unused - instead ask clang to use lld
@@ -88,18 +91,27 @@ set(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "-Wl,-O3 -s" CACHE STRING "Forced MinSizeR
 set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "-Wl,-O2" CACHE STRING "Forced RelWithDebInfo LDFLAGS" FORCE)
 
 # WiringPi is vendored as a git submodule with its own Makefile-based
-# build: drive `make static` in it via a custom command, and link the
-# resulting archive directly (which suits our fully-static linking)
+# build. It is LGPL v3 and upstream refuses static archives, so build the
+# shared library, symlink the unversioned name the linker looks for, and
+# put the submodule dir in the binary's rpath for the runtime loader
 set(WIRINGPI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/wiringpi/wiringPi)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/wiringpi/VERSION WIRINGPI_VERSION)
+string(STRIP "${WIRINGPI_VERSION}" WIRINGPI_VERSION)
 add_custom_command(
-  OUTPUT ${WIRINGPI_DIR}/libwiringPi.a
-  COMMAND make static
+  OUTPUT ${WIRINGPI_DIR}/libwiringPi.so
+  COMMAND make
+  COMMAND ${CMAKE_COMMAND} -E create_symlink
+          libwiringPi.so.${WIRINGPI_VERSION} ${WIRINGPI_DIR}/libwiringPi.so
   WORKING_DIRECTORY ${WIRINGPI_DIR}
-  COMMENT "Building vendored libwiringPi.a"
+  COMMENT "Building vendored libwiringPi.so"
 )
-add_custom_target(wiringpi_static DEPENDS ${WIRINGPI_DIR}/libwiringPi.a)
-add_dependencies(templed wiringpi_static)
+add_custom_target(wiringpi_shared DEPENDS ${WIRINGPI_DIR}/libwiringPi.so)
+add_dependencies(templed wiringpi_shared)
 target_include_directories(templed PRIVATE ${WIRINGPI_DIR})
+# $ORIGIN = "the directory the binary is in", so a shipped templed +
+# libwiringPi.so pair works side by side; the submodule dir covers runs
+# straight from the build tree
+set_target_properties(templed PROPERTIES BUILD_RPATH "\$ORIGIN;${WIRINGPI_DIR}")
 
-# Libraries to link in (pthread/rt are WiringPi's own dependencies)
-target_link_libraries(templed ${WIRINGPI_DIR}/libwiringPi.a m pthread rt)
+# Libraries to link in
+target_link_libraries(templed ${WIRINGPI_DIR}/libwiringPi.so m)
